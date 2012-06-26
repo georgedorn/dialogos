@@ -6,6 +6,7 @@ from django.contrib.contenttypes.models import ContentType
 from dialogos.authorization import load_can_delete, load_can_edit
 from dialogos.forms import CommentForm
 from dialogos.models import Comment
+from django.forms.models import model_to_dict
 
 
 can_delete = load_can_delete()
@@ -85,7 +86,29 @@ class CommentFormNode(BaseCommentNode):
         form = form_class(obj=obj, user=user)
         context[self.varname] = form
         return ""
+    
+class CommentEditFormNode(BaseCommentNode):
+    
+    requires_as_var = False
+    
+    def __init__(self, comment):
+        self.comment = comment
+    
+    def render(self, context):
+        comment = self.comment.resolve(context)
+        form_class = context.get('form', CommentForm)
+        form = form_class(obj=comment.content_object,
+                          user=comment.author,
+                          initial=model_to_dict(comment))
+        return form
 
+@register.tag
+def edit_comment_form(parser, token):
+    """
+    Usage:
+      {% edit_comment_form comment %}
+    """
+    return CommentEditFormNode.handle_token(parser, token)
 
 class CommentTargetNode(BaseCommentNode):
     

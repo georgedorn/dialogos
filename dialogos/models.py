@@ -16,7 +16,8 @@ class Comment(models.Model):
     website = models.CharField(max_length=255, blank=True)
     
     content_type = models.ForeignKey(ContentType)
-    object_id = models.IntegerField()
+#    object_id = models.IntegerField()
+    object_id = models.TextField()
     content_object = GenericForeignKey()
     
     comment = models.TextField()
@@ -26,4 +27,4 @@ class Comment(models.Model):
     public = models.BooleanField(default=True)
     
     def __unicode__(self):
-        return "pk=%d" % self.pk
+        return "pk=%s" % self.pk
