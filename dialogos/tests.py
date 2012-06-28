@@ -3,14 +3,35 @@ from django.template import Template, Context
 
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.test import TestCase
+#from eldarion.test import TestCase
 
-from eldarion.test import TestCase
-
-from dialogos.forms import UnauthenticatedCommentForm, AuthenticatedCommentForm
+#from dialogos.forms import UnauthenticatedCommentForm, AuthenticatedCommentForm
+from dialogos.forms import CommentForm
 from dialogos.models import Comment
+from django.core.urlresolvers import reverse
+
+from contextlib import contextmanager
+
+    
 
 
 class CommentTests(TestCase):
+
+    @contextmanager
+    def login(self, username, password):
+        self.client.login(username=username, password=password)
+        yield
+        self.client.logout()
+
+    def post(self, name, **kwargs):
+        if 'data' in kwargs:
+            data = kwargs.pop('data')
+        else:
+            data = {}
+        url = reverse(name, kwargs=kwargs)
+
+        return self.client.post(url, data=data)
     
     def setUp(self):
         self.user = User.objects.create_user("gimli", "myaxe@dwarf.org", "gloin")
@@ -21,11 +42,11 @@ class CommentTests(TestCase):
         self.assertEqual(tmpl.render(context), value)
     
     def post_comment(self, obj, data):
-        return self.post("post_comment",
-            content_type_id=ContentType.objects.get_for_model(obj).pk,
-            object_id=obj.pk,
-            data=data
-        )
+        content_type_id = ContentType.objects.get_for_model(obj).pk
+
+        url = reverse(viewname='post_comment', kwargs={'content_type_id': content_type_id,
+                                                       'object_id': obj.pk})
+        return self.client.post(url, data=data)
     
     def test_post_comment(self):
         g = User.objects.create(username="Gandalf")
@@ -34,8 +55,8 @@ class CommentTests(TestCase):
             "name": "Frodo Baggins",
             "comment": "Where'd you go?",
         })
-        self.assertEqual(response.status_code, 302)
         
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(Comment.objects.count(), 1)
         c = Comment.objects.get()
         self.assertEqual(c.author, None)
@@ -66,6 +87,7 @@ class CommentTests(TestCase):
             comment = Comment.objects.get()
         
         response = self.post("delete_comment", comment_id=comment.pk)
+
         self.assertEqual(response.status_code, 302)
         self.assertEqual(Comment.objects.count(), 1)
         
@@ -123,7 +145,7 @@ class CommentTests(TestCase):
             c,
             ""
         )
-        self.assertTrue(isinstance(c["comment_form"], UnauthenticatedCommentForm))
+        self.assertTrue(isinstance(c["comment_form"], CommentForm))
         
         with self.login("gimli", "gloin"):
             c = Context({"o": g, "user": self.user})
@@ -132,12 +154,16 @@ class CommentTests(TestCase):
                 c,
                 ""
             )
-            self.assertTrue(isinstance(c["comment_form"], AuthenticatedCommentForm))
+            self.assertTrue(isinstance(c["comment_form"], CommentForm))
     
     def test_ttag_comment_target(self):
         g = User.objects.create(username="legolas")
+        content_type_id = ContentType.objects.get_for_model(g).pk
+        post_url = reverse('post_comment', kwargs={'content_type_id':content_type_id,
+                                                   'object_id':g.pk} )
+        
         self.assert_renders(
             "{% load dialogos_tags %}{% comment_target o %}",
             Context({"o": g}),
-            "/comment/%d/%d/" % (ContentType.objects.get_for_model(g).pk, g.pk)
+            post_url
         )
