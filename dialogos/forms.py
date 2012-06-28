@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.models import AnonymousUser
 
 from django.contrib.contenttypes.models import ContentType
 
@@ -17,6 +18,10 @@ class CommentForm(forms.ModelForm):
         self.request = kwargs.pop("request", None)
         self.obj = kwargs.pop("obj")
         self.user = kwargs.pop("user")
+        
+        if isinstance(self.user, AnonymousUser):
+            self.user = None
+        
         super(CommentForm, self).__init__(*args, **kwargs)
         if self.user is not None:
             del self.fields["name"]
