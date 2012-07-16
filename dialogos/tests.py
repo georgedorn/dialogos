@@ -118,6 +118,29 @@ class CommentTests(TestCase):
             "2"
         )
     
+    def test_ttag_public_comment_count(self):
+        g = User.objects.create(username="Sauron")
+        self.post_comment(g, data={
+            "name": "Gandalf",
+            "comment": "You can't win",
+        })
+        self.post_comment(g, data={
+            "name": "Gollum",
+            "comment": "We wants our precious",
+        })
+        
+        #make one private
+        comment = Comment.objects.all()[0]
+        comment.public = False
+        comment.save()
+        
+        self.assert_renders(
+            "{% load dialogos_tags %}{% public_comment_count o %}", 
+            Context({"o": g}),
+            "1"
+        )
+    
+    
     def test_ttag_comments(self):
         g = User.objects.create(username="Sauron")
         self.post_comment(g, data={

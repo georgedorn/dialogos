@@ -45,12 +45,14 @@ class BaseCommentNode(template.Node):
         self.obj = obj
         self.varname = varname
     
-    def get_comments(self, context):
+    def get_comments(self, context, public_only=False):
         obj = self.obj.resolve(context)
         comments = Comment.objects.filter(
             object_id=obj.pk,
             content_type=ContentType.objects.get_for_model(obj)
         )
+        if public_only:
+            comments = comments.filter(public=True)
         return comments.order_by("submit_date")
 
 
@@ -64,6 +66,19 @@ class CommentCountNode(BaseCommentNode):
             context[self.varname] = comments
             return ""
         return unicode(comments)
+    
+class PublicCommentCountNode(CommentCountNode):
+    """
+    Retrieves only public comments.
+    @todo: refactor CommentCountNode to take another param instead of this.
+    """
+    def render(self, context):
+        comments = self.get_comments(context, public_only=True).count()
+        if self.varname is not None:
+            context[self.varname] = comments
+            return ""
+        return unicode(comments)
+    
 
 
 class CommentsNode(BaseCommentNode):
@@ -132,6 +147,18 @@ def comment_count(parser, token):
         {% comment_count obj as var %}
     """
     return CommentCountNode.handle_token(parser, token)
+
+
+@register.tag
+def public_comment_count(parser, token):
+    """
+    Usage:
+        
+        {% public_comment_count obj %}
+    or
+        {% public_comment_count obj as var %}
+    """
+    return PublicCommentCountNode.handle_token(parser, token)
 
 
 @register.tag
